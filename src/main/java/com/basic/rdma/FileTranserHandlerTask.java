@@ -9,9 +9,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 
 /**
  * locate com.basic.rdma
@@ -44,12 +46,19 @@ public class FileTranserHandlerTask implements Runnable{
      * @throws Exception
      */
     public void recvSingleFile(String filePath) throws Exception {
+        CyclicBarrier cyclicBarrier=new CyclicBarrier(2);
+
         File file= new File(filePath);
+        if(file.exists())
+            file.delete();
         RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");
+        FileChannel fileChannel = randomAccessFile.getChannel();
 
         // data index transferSize
         RdmaBuffer dataBuffer = rdmaBufferManager.get(cmdLineCommon.getSize()+ 4 + 8);
         RdmaBuffer infoBuffer = rdmaBufferManager.get(4096);
+        ByteBuffer dataByteBuffer = dataBuffer.getByteBuffer();
+        ByteBuffer infoByteBuffer = infoBuffer.getByteBuffer();
 
         int splitSize=0;
         long fileLength=0L;
@@ -58,30 +67,44 @@ public class FileTranserHandlerTask implements Runnable{
             @Override
             public void onSuccess(ByteBuffer buf, Integer IMM) {
                 logger.info("infoBuffer RECEIVE Success!!!");
-                rdmaBufferManager.put(infoBuffer);
+                try {
+                    cyclicBarrier.await();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (BrokenBarrierException e) {
+                    e.printStackTrace();
+                }
             }
 
             @Override
             public void onFailure(Throwable exception) {
                 exception.printStackTrace();
-                rdmaBufferManager.put(infoBuffer);
             }
         },infoBuffer.getAddress(),infoBuffer.getLength(),infoBuffer.getLkey());
-        splitSize = infoBuffer.getByteBuffer().getInt();
-        fileLength = infoBuffer.getByteBuffer().getLong();
+        cyclicBarrier.await();
+
+        splitSize = infoByteBuffer.getInt();
+        fileLength = infoByteBuffer.getLong();
         logger.info("Transfer Split File {} Block , Filelength {}", splitSize, fileLength);
+        rdmaBufferManager.put(infoBuffer);
 
         for (int i = 0; i < splitSize; i++) {
+            cyclicBarrier.reset();
             rdmaChannel.rdmaReceiveInQueue(new RdmaCompletionListener() {
                 @Override
                 public void onSuccess(ByteBuffer buf, Integer IMM) {
                     try {
-                        int index = dataBuffer.getByteBuffer().getInt();
-                        long size = dataBuffer.getByteBuffer().getLong();
-                        logger.info("BLOCK {} RECEIVE Success!!! : {}", index, size);
+                        dataByteBuffer.clear();
+                        int index = dataByteBuffer.getInt();
+                        long size = dataByteBuffer.getLong();
 
-                        randomAccessFile.write(dataBuffer.getByteBuffer().array(),12, (int) size);
-                    } catch (IOException e) {
+                        logger.info("BLOCK {} RECEIVE Success!!! : {}", index, size);
+                        dataByteBuffer.limit((int) (size + 4+ 8));
+                        while(dataByteBuffer.hasRemaining()){
+                            fileChannel.write(dataByteBuffer);
+                        }
+                        cyclicBarrier.await();
+                    } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
@@ -91,7 +114,10 @@ public class FileTranserHandlerTask implements Runnable{
                     exception.printStackTrace();
                 }
             },dataBuffer.getAddress(),dataBuffer.getLength(),dataBuffer.getLkey());
+            cyclicBarrier.await();
         }
-        rdmaBufferManager.put(infoBuffer);
+
+        fileChannel.close();
+        rdmaBufferManager.put(dataBuffer);
     }
 }

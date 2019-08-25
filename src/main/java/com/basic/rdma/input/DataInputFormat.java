@@ -49,7 +49,7 @@ public class DataInputFormat {
             long bytesRemaining = length;
             // 循环分片。
             // 当剩余数据与分片大小比值大于Split_Slop时，继续分片， 小于等于时，停止分片
-            while (((double) bytesRemaining) / blockSize > SPLIT_SLOP) {
+            while (bytesRemaining / blockSize > SPLIT_SLOP) {
                 splits.add(new FileSplit(path, length - bytesRemaining,
                         blockSize));
                 bytesRemaining -= blockSize;

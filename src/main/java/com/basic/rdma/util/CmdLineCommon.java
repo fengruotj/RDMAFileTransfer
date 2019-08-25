@@ -10,6 +10,7 @@ public class CmdLineCommon {
 
 	private static final String IP_KEY = "a";
 	private String ip;
+	private static final String DEFAULT_IP = "locahost";
 
 	private static final String PORT_KEY = "p";
 	private int port;
@@ -22,6 +23,9 @@ public class CmdLineCommon {
 	private static final String PATH_KEY = "f";
 	private String path;
 
+	private static final String INTERFACE_KEY = "i";
+	private String iface;
+
 	private final String appName;
 
 	private final Options options;
@@ -30,15 +34,18 @@ public class CmdLineCommon {
 		this.appName = appName;
 
 		this.options = new Options();
-		Option address = Option.builder(IP_KEY).required().desc("ip address").hasArg().required().build();
+		Option address = Option.builder(IP_KEY).desc("ip address").hasArg().build();
 		Option path = Option.builder(PATH_KEY).desc("file path").hasArg().type(String.class).required().build();
+		Option iface = Option.builder(INTERFACE_KEY).desc("iface").hasArg().type(String.class).required().build();
 		Option port = Option.builder(PORT_KEY).desc("port").hasArg().type(Number.class).build();
 		Option size = Option.builder(SIZE_KEY).desc("size").hasArg().type(Number.class).build();
+
 
 		options.addOption(address);
 		options.addOption(port);
 		options.addOption(size);
 		options.addOption(path);
+		options.addOption(iface);
 	}
 
 	protected Options addOption(Option option) {
@@ -62,7 +69,13 @@ public class CmdLineCommon {
 		} else {
 			size = DEFAULT_SIZE;
 		}
-		path = ((String) line.getParsedOptionValue(PATH_KEY)).toString();
+		if (line.hasOption(IP_KEY)) {
+			ip = ((String) line.getParsedOptionValue(IP_KEY));
+		} else {
+			ip = DEFAULT_IP;
+		}
+		path = ((String) line.getParsedOptionValue(PATH_KEY));
+		iface = ((String) line.getParsedOptionValue(INTERFACE_KEY));
 	}
 
 	public void parse(String[] args) throws ParseException {
@@ -85,5 +98,9 @@ public class CmdLineCommon {
 
 	public String getPath() {
 		return path;
+	}
+
+	public String getIface() {
+		return iface;
 	}
 }

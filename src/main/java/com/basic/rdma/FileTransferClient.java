@@ -9,6 +9,7 @@ import com.basic.rdmachannel.channel.RdmaCompletionListener;
 import com.basic.rdmachannel.channel.RdmaNode;
 import com.basic.rdmachannel.mr.RdmaBuffer;
 import com.basic.rdmachannel.mr.RdmaBufferManager;
+import com.basic.rdmachannel.util.RDMAUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,6 +19,8 @@ import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 
 /**
  * locate com.basic.rdma
@@ -34,8 +37,9 @@ public class FileTransferClient {
 
     private CmdLineCommon cmdLineCommon;
     public FileTransferClient(CmdLineCommon cmdLineCommon,RdmaChannelConf rdmaChannelConf) throws Exception {
+        String hostName = RDMAUtils.getLocalHostLANAddress(cmdLineCommon.getIface()).getHostName();
         this.cmdLineCommon = cmdLineCommon;
-        this.rdmaClient=new RdmaNode(cmdLineCommon.getIp(), cmdLineCommon.getPort(), rdmaChannelConf , RdmaChannel.RdmaChannelType.RPC);
+        this.rdmaClient=new RdmaNode(hostName, cmdLineCommon.getPort(), rdmaChannelConf , RdmaChannel.RdmaChannelType.RPC);
         this.rdmaBufferManager = rdmaClient.getRdmaBufferManager();
         this.dataInputFormat=new DataInputFormat((long) cmdLineCommon.getSize());
     }
@@ -55,17 +59,20 @@ public class FileTransferClient {
      * @throws IOException
      * @throws InterruptedException
      */
-    public void sendSingleFile(String filePath) throws IOException, InterruptedException {
+    public void sendSingleFile(String filePath) throws Exception {
         File file= new File(filePath);
         RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");
         List<InputSplit> splits = dataInputFormat.getSplits(filePath);
         // data index transferSize
         RdmaBuffer dataBuffer = rdmaBufferManager.get(cmdLineCommon.getSize()+ 4 + 8);
+        ByteBuffer dataByteBuffer = dataBuffer.getByteBuffer();
         RdmaBuffer infoBuffer = rdmaBufferManager.get(4096);
+        ByteBuffer infoByteBuffer = infoBuffer.getByteBuffer();
 
         // File Information
-        infoBuffer.getByteBuffer().putInt(splits.size());
-        infoBuffer.getByteBuffer().putLong(file.length());
+        infoByteBuffer.putInt(splits.size());
+        infoByteBuffer.putLong(file.length());
+        logger.info("Transfer Split File {} Block , Filelength {}", splits.size(), file.length());
         clientChannel.rdmaSendInQueue(new RdmaCompletionListener() {
             @Override
             public void onSuccess(ByteBuffer buf, Integer IMM) {
@@ -80,27 +87,41 @@ public class FileTransferClient {
             }
         },new long[]{infoBuffer.getAddress()},new int[]{infoBuffer.getLength()},new int[]{infoBuffer.getLkey()});
 
-        // File Data
-        for (int i = 0; i < splits.size(); i++) {
-            dataBuffer.getByteBuffer().clear();
-            InputSplit inputSplit = splits.get(i);
-            dataBuffer.getByteBuffer().putInt(i);
-            dataBuffer.getByteBuffer().putLong(inputSplit.getLength());
-            randomAccessFile.getChannel().read(dataBuffer.getByteBuffer());
 
+        // File Data
+        CyclicBarrier cyclicBarrier=new CyclicBarrier(2);
+        for (int i = 0; i < splits.size(); i++) {
+            cyclicBarrier.reset();
+
+            dataByteBuffer.clear();
+            InputSplit inputSplit = splits.get(i);
+            long length = inputSplit.getLength();
+            dataByteBuffer.putInt(i);
+            dataByteBuffer.putLong(length);
+            randomAccessFile.getChannel().read(dataByteBuffer);
+
+            int finalI = i;
             clientChannel.rdmaSendInQueue(new RdmaCompletionListener() {
                 @Override
                 public void onSuccess(ByteBuffer buf, Integer IMM) {
-                    logger.info("Block SEND SUCCESS" );
-            }
+                    logger.info("Block {} SEND SUCCESS: {} " , finalI , length);
+                    try {
+                        cyclicBarrier.await();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (BrokenBarrierException e) {
+                        e.printStackTrace();
+                    }
+                }
 
-            @Override
+                @Override
                 public void onFailure(Throwable exception) {
                     exception.printStackTrace();
                 }
             },new long[]{dataBuffer.getAddress()},new int[]{dataBuffer.getLength()},new int[]{dataBuffer.getLkey()});
+            cyclicBarrier.await();
         }
 
-        rdmaBufferManager.put(infoBuffer);
+        rdmaBufferManager.put(dataBuffer);
     }
 }

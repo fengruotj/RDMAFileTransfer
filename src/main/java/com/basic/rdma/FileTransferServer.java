@@ -5,6 +5,7 @@ import com.basic.rdmachannel.channel.RdmaChannel;
 import com.basic.rdmachannel.channel.RdmaChannelConf;
 import com.basic.rdmachannel.channel.RdmaConnectListener;
 import com.basic.rdmachannel.channel.RdmaNode;
+import com.basic.rdmachannel.util.RDMAUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,8 +25,9 @@ public class FileTransferServer implements RdmaConnectListener {
 
     private CmdLineCommon cmdLineCommon;
     public FileTransferServer(CmdLineCommon cmdLineCommon, RdmaChannelConf rdmaChannelConf) throws Exception {
+        String hostName = RDMAUtils.getLocalHostLANAddress(cmdLineCommon.getIface()).getHostName();
         this.cmdLineCommon = cmdLineCommon;
-        this.rdmaServer = new RdmaNode(cmdLineCommon.getIp(), cmdLineCommon.getPort(), rdmaChannelConf, RdmaChannel.RdmaChannelType.RPC);
+        this.rdmaServer = new RdmaNode(hostName, cmdLineCommon.getPort(), rdmaChannelConf, RdmaChannel.RdmaChannelType.RPC);
         this.executorService = Executors.newCachedThreadPool();
     }
 
