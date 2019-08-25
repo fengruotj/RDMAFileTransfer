@@ -40,10 +40,21 @@ public class FileTransferClient {
         this.dataInputFormat=new DataInputFormat((long) cmdLineCommon.getSize());
     }
 
-    public void connect() throws IOException, InterruptedException {
-        clientChannel = rdmaClient.getRdmaChannel(new InetSocketAddress("10.10.0.25", 1955), true, RdmaChannel.RdmaChannelType.RPC);
+    /**
+     * 连接RDMA文件传输服务器
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    public void connect(String host, int port) throws IOException, InterruptedException {
+        clientChannel = rdmaClient.getRdmaChannel(new InetSocketAddress(host, port), true, RdmaChannel.RdmaChannelType.RPC);
     }
 
+    /**
+     * 客户端发送单个文件
+     * @param filePath
+     * @throws IOException
+     * @throws InterruptedException
+     */
     public void sendSingleFile(String filePath) throws IOException, InterruptedException {
         File file= new File(filePath);
         RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");

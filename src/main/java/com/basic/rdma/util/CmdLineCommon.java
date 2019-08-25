@@ -2,6 +2,10 @@ package com.basic.rdma.util;
 
 import org.apache.commons.cli.*;
 
+/**
+ * locate com.basic.rdma
+ * Created by master on 2019/8/25.
+ */
 public class CmdLineCommon {
 
 	private static final String IP_KEY = "a";
@@ -66,7 +70,6 @@ public class CmdLineCommon {
 		CommandLine line = parser.parse(options, args);
 		getOptionsValue(line);
 	}
-
 
 	public String getIp() {
 		return ip;
