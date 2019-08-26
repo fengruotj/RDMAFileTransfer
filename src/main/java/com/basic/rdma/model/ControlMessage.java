@@ -1,4 +1,4 @@
-package com.basic.rdma;
+package com.basic.rdma.model;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

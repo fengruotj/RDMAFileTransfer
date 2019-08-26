@@ -64,9 +64,9 @@ public class FileTransferClient {
         RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");
         List<InputSplit> splits = dataInputFormat.getSplits(filePath);
         // data index transferSize
-        RdmaBuffer dataBuffer = rdmaBufferManager.get(cmdLineCommon.getSize()+ 4 + 8);
+        RdmaBuffer dataBuffer = rdmaBufferManager.get(cmdLineCommon.getSize()+ Constants.BLOCKINDEX_SIZE + Constants.BLOCKLENGTH_SIZE);
         ByteBuffer dataByteBuffer = dataBuffer.getByteBuffer();
-        RdmaBuffer infoBuffer = rdmaBufferManager.get(4096);
+        RdmaBuffer infoBuffer = rdmaBufferManager.get(Constants.INFOBUFFER_SIZE);
         ByteBuffer infoByteBuffer = infoBuffer.getByteBuffer();
 
         // File Information

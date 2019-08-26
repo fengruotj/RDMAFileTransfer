@@ -1,5 +1,6 @@
-package com.basic.rdma;
+package com.basic.rdma.task;
 
+import com.basic.rdma.Constants;
 import com.basic.rdma.util.CmdLineCommon;
 import com.basic.rdmachannel.channel.RdmaChannel;
 import com.basic.rdmachannel.channel.RdmaCompletionListener;
@@ -55,8 +56,8 @@ public class FileTranserHandlerTask implements Runnable{
         FileChannel fileChannel = randomAccessFile.getChannel();
 
         // data index transferSize
-        RdmaBuffer dataBuffer = rdmaBufferManager.get(cmdLineCommon.getSize()+ 4 + 8);
-        RdmaBuffer infoBuffer = rdmaBufferManager.get(4096);
+        RdmaBuffer dataBuffer = rdmaBufferManager.get(cmdLineCommon.getSize()+ Constants.BLOCKINDEX_SIZE + Constants.BLOCKLENGTH_SIZE);
+        RdmaBuffer infoBuffer = rdmaBufferManager.get(Constants.INFOBUFFER_SIZE);
         ByteBuffer dataByteBuffer = dataBuffer.getByteBuffer();
         ByteBuffer infoByteBuffer = infoBuffer.getByteBuffer();
 
@@ -99,7 +100,7 @@ public class FileTranserHandlerTask implements Runnable{
                         long size = dataByteBuffer.getLong();
 
                         logger.info("BLOCK {} RECEIVE Success!!! : {}", index, size);
-                        dataByteBuffer.limit((int) (size + 4+ 8));
+                        dataByteBuffer.limit((int) (size + Constants.BLOCKINDEX_SIZE+ Constants.BLOCKLENGTH_SIZE));
                         while(dataByteBuffer.hasRemaining()){
                             fileChannel.write(dataByteBuffer);
                         }
