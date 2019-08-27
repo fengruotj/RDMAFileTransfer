@@ -4,8 +4,6 @@ import org.junit.Test;
 
 import java.io.IOException;
 
-import static org.junit.Assert.*;
-
 /**
  * locate com.basic.rdma.input
  * Created by master on 2019/8/25.
@@ -15,7 +13,7 @@ public class DataInputFormatTest {
 
     @Test
     public void getSplits() throws IOException {
-        for (InputSplit split : inputFormat.getSplits("/Users/master/Downloads/Termius.dmg")) {
+        for (InputSplit split : inputFormat.getSplits("README.md")) {
             System.out.println(split);
         }
     }
