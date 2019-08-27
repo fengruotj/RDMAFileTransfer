@@ -41,6 +41,11 @@ public class FileTransferServer implements RdmaConnectListener {
         rdmaServer.bindConnectCompleteListener(this);
     }
 
+    public void stop() throws Exception {
+        this.rdmaServer.stop();
+        this.executorService.shutdown();
+    }
+
     @Override
     public void onSuccess(InetSocketAddress inetSocketAddress, RdmaChannel rdmaChannel) {
         logger.info("success accept RdmaChannel: " + inetSocketAddress.getHostName());

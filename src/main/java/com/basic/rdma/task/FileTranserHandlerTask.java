@@ -36,9 +36,9 @@ public class FileTranserHandlerTask implements Runnable{
     public void run() {
         try {
             recvSingleFile(cmdLineCommon.getPath());
-    } catch (Exception e) {
-        e.printStackTrace();
-    }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 }
 
     /**

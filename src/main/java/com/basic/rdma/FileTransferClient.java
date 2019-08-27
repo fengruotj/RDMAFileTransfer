@@ -53,6 +53,10 @@ public class FileTransferClient {
         clientChannel = rdmaClient.getRdmaChannel(new InetSocketAddress(host, port), true, RdmaChannel.RdmaChannelType.RPC);
     }
 
+    public void stop() throws Exception {
+        this.rdmaClient.stop();
+    }
+
     /**
      * 客户端发送单个文件
      * @param filePath

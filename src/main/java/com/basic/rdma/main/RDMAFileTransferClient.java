@@ -30,6 +30,7 @@ public class RDMAFileTransferClient {
         }
         this.transferClient = new FileTransferClient(cmdLine,new RdmaChannelConf());
         this.run();
+        transferClient.stop();
     }
 
     public static void main(String[] args) throws Exception {
