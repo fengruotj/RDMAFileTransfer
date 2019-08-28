@@ -97,10 +97,10 @@ public class FileTranserHandlerTask implements Runnable{
                     try {
                         dataByteBuffer.clear();
                         int index = dataByteBuffer.getInt();
-                        long size = dataByteBuffer.getLong();
+                        long length = dataByteBuffer.getLong();
 
-                        logger.info("BLOCK {} RECEIVE Success!!! : {}", index, size);
-                        dataByteBuffer.limit((int) (size + Constants.BLOCKINDEX_SIZE+ Constants.BLOCKLENGTH_SIZE));
+                        logger.info("BLOCK {} RECEIVE Success!!! : {}", index, length);
+                        dataByteBuffer.limit((int) (length + Constants.BLOCKINDEX_SIZE+ Constants.BLOCKLENGTH_SIZE));
                         while(dataByteBuffer.hasRemaining()){
                             fileChannel.write(dataByteBuffer);
                         }
