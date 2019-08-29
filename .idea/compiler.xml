@@ -6,11 +6,12 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="RDMAFileTransfer" />
+        <module name="FileTransfer-RDMAChannel" />
+        <module name="FileTransfer-Verbs" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="RDMAFileTransfer" target="1.8" />
+      <module name="RDMAFileTransfer-Verbs" target="1.8" />
     </bytecodeTargetLevel>
   </component>
 </project>

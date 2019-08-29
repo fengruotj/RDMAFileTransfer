@@ -8,7 +8,7 @@ import org.apache.commons.cli.ParseException;
 /**
  * locate com.basic.rdma.main
  * Created by master on 2019/8/25.
- * java -cp RDMAFileTransfer-1.0-SNAPSHOT-jar-with-dependencies.jar com.basic.rdma.main.RDMAFileTransferServer -a -p -s -f
+ * java -cp FileTransfer-RDMAChannel-1.0-SNAPSHOT-jar-with-dependencies.jar com.basic.rdma.main.RDMAFileTransferServer -a -p -s -f
  */
 public class RDMAFileTransferServer {
     private FileTransferServer transferServer;

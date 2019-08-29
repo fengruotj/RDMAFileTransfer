@@ -6,9 +6,14 @@
 
   <groupId>com.basic.rdma</groupId>
   <artifactId>RDMAFileTransfer</artifactId>
-  <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <version>1.0-SNAPSHOT</version>
+    <modules>
+        <module>FileTransfer-RDMAChannel</module>
+      <module>FileTransfer-Verbs</module>
+    </modules>
 
-  <name>RDMAFileTransfer</name>
+    <name>RDMAFileTransfer</name>
   <!-- FIXME change it to the project's website -->
   <url>http://www.example.com</url>
 
