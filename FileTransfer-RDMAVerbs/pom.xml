@@ -9,9 +9,9 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>FileTransfer-Verbs</artifactId>
+    <artifactId>FileTransfer-RDMAVerbs</artifactId>
 
-    <name>FileTransfer-Verbs</name>
+    <name>FileTransfer-RDMAVerbs</name>
     <!-- FIXME change it to the project's website -->
     <url>http://www.example.com</url>
 

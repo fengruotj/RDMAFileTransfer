@@ -3,7 +3,7 @@
   <component name="Encoding">
     <file url="file://$PROJECT_DIR$" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/FileTransfer-RDMAChannel" charset="UTF-8" />
-    <file url="file://$PROJECT_DIR$/FileTransfer-Verbs" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/FileTransfer-RDMAVerbs" charset="UTF-8" />
     <file url="PROJECT" charset="UTF-8" />
   </component>
 </project>
