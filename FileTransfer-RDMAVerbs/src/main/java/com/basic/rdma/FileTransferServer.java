@@ -1,6 +1,7 @@
 package com.basic.rdma;
 
 import com.basic.rdma.util.CmdLineCommon;
+import com.basic.rdma.util.RDMAUtils;
 import com.ibm.disni.VerbsTools;
 import com.ibm.disni.rdma.verbs.*;
 import org.slf4j.Logger;
@@ -36,102 +37,92 @@ public class FileTransferServer {
      * @throws Exception
      */
     public void recvSingleFile(String filePath) throws Exception {
-        System.out.println("VerbsClient::starting...");
-        //open the CM and the verbs interfaces
+        System.out.println("VerbsServer::starting...");
 
         //create a communication channel for receiving CM events
         //1.创建一个RDMA的Channel 通信通道为了接收RDMA 通信事件
         RdmaEventChannel cmChannel = RdmaEventChannel.createEventChannel();
         if (cmChannel == null){
-            System.out.println("VerbsClient::cmChannel null");
+            System.out.println("VerbsServer::CM channel null");
             return;
         }
 
-        //create a RdmaCmId for this client
+        //create a RdmaCmId for the server
         //2.创建一个RDMA 通信ID 为了client 每一个clinet就是一个RDMA client
         RdmaCmId idPriv = cmChannel.createId(RdmaCm.RDMA_PS_TCP);
         if (idPriv == null){
-            System.out.println("VerbsClient::id null");
+            System.out.println("idPriv null");
             return;
         }
 
-        //before connecting, we have to resolve addresses
-        //3.在建立连接之前，先要决定目标地址。
-        InetAddress _dst = InetAddress.getByName(cmdLineCommon.getIp());
-        InetSocketAddress dst = new InetSocketAddress(_dst, cmdLineCommon.getPort());
-        int ret = idPriv.resolveAddr(null, dst, 2000);
+        // 3. 绑定IP地址和端口，监听Channel
+        InetAddress _src = RDMAUtils.getLocalHostLANAddress(cmdLineCommon.getIface());
+        InetSocketAddress src = new InetSocketAddress(_src, cmdLineCommon.getPort());
+        int ret = idPriv.bindAddr(src);
         if (ret < 0){
-            System.out.println("VerbsClient::resolveAddr failed");
-            return;
+            System.out.println("VerbsServer::binding not sucessfull");
         }
 
-        //resolve addr returns an event, we have to catch that event
-        //决定了目标地址会返回一个事件，我们必须catch 这个事件
+        //listen on the id
+        ret = idPriv.listen(10);
+        if (ret < 0){
+            System.out.println("VerbsServer::listen not successfull");
+        }
+
+        //wait for new connect requests
         RdmaCmEvent cmEvent = cmChannel.getCmEvent(-1);
         if (cmEvent == null){
-            System.out.println("VerbsClient::cmEvent null");
-            return;
-        } else if (cmEvent.getEvent() != RdmaCmEvent.EventType.RDMA_CM_EVENT_ADDR_RESOLVED
-                .ordinal()) {
-            System.out.println("VerbsClient::wrong event received: " + cmEvent.getEvent());
+            System.out.println("cmEvent null");
             return;
         }
+        else if (cmEvent.getEvent() != RdmaCmEvent.EventType.RDMA_CM_EVENT_CONNECT_REQUEST
+                .ordinal()) {
+            System.out.println("VerbsServer::wrong event received: " + cmEvent.getEvent());
+            return;
+        }
+        //always acknowledge CM events
         cmEvent.ackEvent();
 
-        //we also have to resolve the route
-        //4.需要解决路由
-        ret = idPriv.resolveRoute(2000);
-        if (ret < 0){
-            System.out.println("VerbsClient::resolveRoute failed");
+        //get the id of the newly connection
+        RdmaCmId connId = cmEvent.getConnIdPriv();
+        if (connId == null){
+            System.out.println("VerbsServer::connId null");
             return;
         }
 
-        //and catch that event too
-        //catch 这个事件
-        cmEvent = cmChannel.getCmEvent(-1);
-        if (cmEvent == null){
-            System.out.println("VerbsClient::cmEvent null");
-            return;
-        } else if (cmEvent.getEvent() != RdmaCmEvent.EventType.RDMA_CM_EVENT_ROUTE_RESOLVED
-                .ordinal()) {
-            System.out.println("VerbsClient::wrong event received: " + cmEvent.getEvent());
-            return;
-        }
-        cmEvent.ackEvent();
-
-
-        //let's create a device context
+        //get the device context of the new connection, typically the same as with the server id
         //5.创建一个设备Context
-        IbvContext context = idPriv.getVerbs();
+        IbvContext context = connId.getVerbs();
+        if (context == null){
+            System.out.println("VerbsServer::context null");
+            return;
+        }
 
-        //and a protection domain, we use that one later for registering memory
+        //create a new protection domain, we will use the pd later when registering memory
         //6.创建一个保护域，用来注册内存Memory Region
         IbvPd pd = context.allocPd();
         if (pd == null){
-            System.out.println("VerbsClient::pd null");
+            System.out.println("VerbsServer::pd null");
             return;
         }
 
-        //the comp channel is used for getting CQ events
-        //7.创建一个the comp channel，这个channel被用来获取CQ事件
+        //the comp channel is used to get CQ notifications
         IbvCompChannel compChannel = context.createCompChannel();
         if (compChannel == null){
-            System.out.println("VerbsClient::compChannel null");
+            System.out.println("VerbsServer::compChannel null");
             return;
         }
 
-        //let's create a completion queue
-        //8.让我们创建一个完成队列
+        //create a completion queue
         IbvCQ cq = context.createCQ(compChannel, 50, 0);
         if (cq == null){
-            System.out.println("VerbsClient::cq null");
+            System.out.println("VerbsServer::cq null");
             return;
         }
-        //and request to be notified for this queue
+        //request to be notified on that CQ
         cq.reqNotification(false).execute().free();
 
-        //we prepare for the creation of a queue pair (QP)
-        //9.创建一个Queue Pair
+        //prepare a new queue pair
         IbvQPInitAttr attr = new IbvQPInitAttr();
         attr.cap().setMax_recv_sge(1);
         attr.cap().setMax_recv_wr(10);
@@ -140,10 +131,10 @@ public class FileTransferServer {
         attr.setQp_type(IbvQP.IBV_QPT_RC);
         attr.setRecv_cq(cq);
         attr.setSend_cq(cq);
-        //let's create a queue pair
-        IbvQP qp = idPriv.createQP(pd, attr);
+        //create the queue pair for the client connection
+        IbvQP qp = connId.createQP(pd, attr);
         if (qp == null){
-            System.out.println("VerbsClient::qp null");
+            System.out.println("VerbsServer::qp null");
             return;
         }
 
@@ -160,10 +151,10 @@ public class FileTransferServer {
         ByteBuffer dataBuf = buffers[0];
 
         LinkedList<IbvRecvWR> wrList_recv = new LinkedList<IbvRecvWR>();
-        //now let's connect to the server
         RdmaConnParam connParam = new RdmaConnParam();
         connParam.setRetry_count((byte) 2);
-        ret = idPriv.connect(connParam);
+        //once the client id is set up, accept the connection
+        ret = connId.accept(connParam);
         if (ret < 0){
             System.out.println("VerbsClient::connect failed");
             return;
