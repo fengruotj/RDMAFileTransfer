@@ -13,7 +13,7 @@ public class DataInputFormatTest {
 
     @Test
     public void getSplits() throws IOException {
-        for (InputSplit split : inputFormat.getSplits("README.md")) {
+        for (InputSplit split : inputFormat.getSplits("../README.md")) {
             System.out.println(split);
         }
     }
