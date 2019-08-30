@@ -156,7 +156,7 @@ public class FileTransferClient {
         ///////////////////////////////////////////////////////准备工作////////////////////////////////////////////////////////////////////
         int buffercount = 1;
         int buffersize = cmdLineCommon.getSize();
-        ByteBuffer buffers[] = new ByteBuffer[1];
+        ByteBuffer buffers[] = new ByteBuffer[buffercount];
         IbvMr dataMr = null;
         int access = IbvMr.IBV_ACCESS_LOCAL_WRITE | IbvMr.IBV_ACCESS_REMOTE_WRITE | IbvMr.IBV_ACCESS_REMOTE_READ;
 
