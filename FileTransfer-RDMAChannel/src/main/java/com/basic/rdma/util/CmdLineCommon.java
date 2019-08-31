@@ -34,7 +34,7 @@ public class CmdLineCommon {
 		this.appName = appName;
 
 		this.options = new Options();
-		Option address = Option.builder(IP_KEY).desc("ip address").hasArg().build();
+		Option address = Option.builder(IP_KEY).desc("dst ip address").hasArg().build();
 		Option path = Option.builder(PATH_KEY).desc("file path").hasArg().type(String.class).required().build();
 		Option iface = Option.builder(INTERFACE_KEY).desc("iface").hasArg().type(String.class).required().build();
 		Option port = Option.builder(PORT_KEY).desc("port").hasArg().type(Number.class).build();

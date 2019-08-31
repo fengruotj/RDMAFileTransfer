@@ -9,5 +9,8 @@
         <module name="RDMAFileTransfer" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="RDMAFileTransfer" target="1.8" />
+    </bytecodeTargetLevel>
   </component>
 </project>
