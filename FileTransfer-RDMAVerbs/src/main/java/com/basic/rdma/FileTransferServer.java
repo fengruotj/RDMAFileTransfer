@@ -138,22 +138,10 @@ public class FileTransferServer {
             return;
         }
 
-        ///////////////////////////////////////////////////////准备工作////////////////////////////////////////////////////////////////////
-        int buffercount = 1;
-        ByteBuffer buffers[] = new ByteBuffer[buffercount];
-        IbvMr dataMr = null;
-        int access = IbvMr.IBV_ACCESS_LOCAL_WRITE | IbvMr.IBV_ACCESS_REMOTE_WRITE | IbvMr.IBV_ACCESS_REMOTE_READ;
-
-        //before we connect we also want to register some buffers
-        //register some buffers to be used later
-        buffers[0] = ByteBuffer.allocateDirect(cmdLineCommon.getSize());
-        dataMr = pd.regMr(buffers[0], access).execute().free().getMr();
-        ByteBuffer dataBuf = buffers[0];
-
+        //once the client id is set up, accept the connection
         LinkedList<IbvRecvWR> wrList_recv = new LinkedList<IbvRecvWR>();
         RdmaConnParam connParam = new RdmaConnParam();
         connParam.setRetry_count((byte) 2);
-        //once the client id is set up, accept the connection
         ret = connId.accept(connParam);
         if (ret < 0){
             System.out.println("VerbsClient::connect failed");
@@ -172,16 +160,12 @@ public class FileTransferServer {
         }
         cmEvent.ackEvent();
 
-        IbvSge sgeRecv = new IbvSge();
-        sgeRecv.setAddr(dataMr.getAddr());
-        sgeRecv.setLength(dataMr.getLength());
-        sgeRecv.setLkey(dataMr.getLkey());
-        LinkedList<IbvSge> sgeListRecv = new LinkedList<IbvSge>();
-        sgeListRecv.add(sgeRecv);
-        IbvRecvWR recvWR = new IbvRecvWR();
-        recvWR.setSg_list(sgeListRecv);
-        recvWR.setWr_id(1000);
-        wrList_recv.add(recvWR);
+        //////////////////////////////////////init File/////////////////////////////////
+        File file= new File(filePath);
+        if(file.exists())
+            file.delete();
+        RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");
+        FileChannel fileChannel = randomAccessFile.getChannel();
 
         //it's important to post those receive operations before connecting
         //otherwise the server may issue a send operation and which cannot be received
@@ -189,28 +173,67 @@ public class FileTransferServer {
         VerbsTools commRdma = new VerbsTools(context, compChannel, qp, cq);
         commRdma.initSGRecv(wrList_recv);
 
+        //////////////////////////////////////data index transferSize/////////////////////////////////
+        int buffercount = 2;
+        ByteBuffer buffers[] = new ByteBuffer[buffercount];
+        int access = IbvMr.IBV_ACCESS_LOCAL_WRITE | IbvMr.IBV_ACCESS_REMOTE_WRITE | IbvMr.IBV_ACCESS_REMOTE_READ;
+        //before we connect we also want to register some buffers
+        //register some buffers to be used later
+        buffers[0] = ByteBuffer.allocateDirect(Constants.INFOBUFFER_SIZE);
+        buffers[1] = ByteBuffer.allocateDirect(cmdLineCommon.getSize()+ Constants.BLOCKINDEX_SIZE + Constants.BLOCKLENGTH_SIZE);
+        IbvMr infoMr = pd.regMr(buffers[0], access).execute().free().getMr();
+        IbvMr dataMr = pd.regMr(buffers[1], access).execute().free().getMr();
+        ByteBuffer infoByteBuffer = buffers[0];
+        ByteBuffer dataByteBuffer = buffers[1];
+
+        int splitSize=0;
+        long fileLength=0L;
+
+        //////////////////////////////////////File Information//////////////////////////////////////
+        IbvSge sgeInfoRecv = new IbvSge();
+        sgeInfoRecv.setAddr(infoMr.getAddr());
+        sgeInfoRecv.setLength(infoMr.getLength());
+        sgeInfoRecv.setLkey(infoMr.getLkey());
+        LinkedList<IbvSge> sgeInfoListRecv = new LinkedList<IbvSge>();
+        sgeInfoListRecv.add(sgeInfoRecv);
+        IbvRecvWR recvInfoWR = new IbvRecvWR();
+        recvInfoWR.setSg_list(sgeInfoListRecv);
+        recvInfoWR.setWr_id(2000);
+        wrList_recv.add(recvInfoWR);
+
         //let's wait for the first message to be received from the server
         // 应用程序发送 RDMA RECEIVE请求到Receive Queue，同时等待Complete Queue中请求执行完成
         commRdma.completeSGRecv(wrList_recv, false);
+        splitSize = infoByteBuffer.getInt();
+        fileLength = infoByteBuffer.getLong();
+        logger.info("Transfer Split File {} Block , Filelength {}", splitSize, fileLength);
 
-        //here we go, it contains the RDMA information of a remote buffer
-        dataBuf.clear();
+        //////////////////////////////////////write data File//////////////////////////////////////
+        for (int i = 0; i < splitSize; i++) {
+            IbvSge sgeDataRecv = new IbvSge();
+            sgeDataRecv.setAddr(dataMr.getAddr());
+            sgeDataRecv.setLength(dataMr.getLength());
+            sgeDataRecv.setLkey(dataMr.getLkey());
+            LinkedList<IbvSge> sgeDataListRecv = new LinkedList<IbvSge>();
+            sgeDataListRecv.add(sgeDataRecv);
+            IbvRecvWR recvDataWR = new IbvRecvWR();
+            recvDataWR.setSg_list(sgeDataListRecv);
+            recvDataWR.setWr_id(3000 + i);
+            wrList_recv.add(recvDataWR);
 
-        // READ File Data
-        File file= new File(filePath);
-        if(file.exists())
-            file.delete();
-        RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");
-        FileChannel fileChannel = randomAccessFile.getChannel();
+            //let's wait for the first message to be received from the server
+            // 应用程序发送 RDMA RECEIVE请求到Receive Queue，同时等待Complete Queue中请求执行完成
+            commRdma.completeSGRecv(wrList_recv, false);
 
-        while(dataBuf.hasRemaining()){
-            fileChannel.write(dataBuf);
+            int index = dataByteBuffer.getInt();
+            long length = dataByteBuffer.getLong();
+
+            logger.info("BLOCK {} RECEIVE Success!!! : {}", index, length);
+            dataByteBuffer.limit((int) (length + Constants.BLOCKINDEX_SIZE+ Constants.BLOCKLENGTH_SIZE));
+            while(dataByteBuffer.hasRemaining()){
+                fileChannel.write(dataByteBuffer);
+            }
         }
-
-        dataBuf.clear();
-        System.out.println("VerbsServer::stag info receive");
-
-        fileChannel.close();
     }
 
 }
