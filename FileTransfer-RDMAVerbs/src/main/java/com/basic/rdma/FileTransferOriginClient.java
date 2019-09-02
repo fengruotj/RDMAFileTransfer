@@ -1,13 +1,10 @@
 package com.basic.rdma;
 
-import com.basic.rdma.input.DataInputFormat;
-import com.basic.rdma.input.InputSplit;
 import com.basic.rdma.util.CmdLineCommon;
 import com.ibm.disni.VerbsTools;
 import com.ibm.disni.rdma.verbs.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -15,17 +12,16 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
-import java.util.List;
 
 /**
  * locate com.basic.rdma
  * Created by master on 2019/8/25.
  */
-public class FileTransferClient {
+public class FileTransferOriginClient {
     private static final Logger logger = LoggerFactory.getLogger(FileTransferClient.class);
 
     private CmdLineCommon cmdLineCommon;
-    public FileTransferClient(CmdLineCommon cmdLineCommon) throws Exception {
+    public FileTransferOriginClient(CmdLineCommon cmdLineCommon) throws Exception {
         this.cmdLineCommon = cmdLineCommon;
     }
 
@@ -143,9 +139,9 @@ public class FileTransferClient {
         //9.创建一个Queue Pair
         IbvQPInitAttr attr = new IbvQPInitAttr();
         attr.cap().setMax_recv_sge(1);
-        attr.cap().setMax_recv_wr(4096);
+        attr.cap().setMax_recv_wr(10);
         attr.cap().setMax_send_sge(1);
-        attr.cap().setMax_send_wr(4096);
+        attr.cap().setMax_send_wr(10);
         attr.setQp_type(IbvQP.IBV_QPT_RC);
         attr.setRecv_cq(cq);
         attr.setSend_cq(cq);
@@ -156,20 +152,20 @@ public class FileTransferClient {
             return;
         }
 
-        //////////////////////////////////////data index transferSize/////////////////////////////////
-        int buffercount = 2;
+        ///////////////////////////////////////////////////////准备工作////////////////////////////////////////////////////////////////////
+        int buffercount = 1;
+        int buffersize = cmdLineCommon.getSize();
         ByteBuffer buffers[] = new ByteBuffer[buffercount];
+        IbvMr dataMr = null;
         int access = IbvMr.IBV_ACCESS_LOCAL_WRITE | IbvMr.IBV_ACCESS_REMOTE_WRITE | IbvMr.IBV_ACCESS_REMOTE_READ;
+
         //before we connect we also want to register some buffers
         //register some buffers to be used later
-        buffers[0] = ByteBuffer.allocateDirect(Constants.INFOBUFFER_SIZE);
-        buffers[1] = ByteBuffer.allocateDirect(cmdLineCommon.getSize()+ Constants.BLOCKINDEX_SIZE + Constants.BLOCKLENGTH_SIZE);
-        IbvMr infoMr = pd.regMr(buffers[0], access).execute().free().getMr();
-        IbvMr dataMr = pd.regMr(buffers[1], access).execute().free().getMr();
-        ByteBuffer infoByteBuffer = buffers[0];
-        ByteBuffer dataByteBuffer = buffers[1];
+        buffers[0] = ByteBuffer.allocateDirect(buffersize);
+        dataMr = pd.regMr(buffers[0], access).execute().free().getMr();
+        ByteBuffer dataBuf = buffers[0];
 
-        //////////////////////////////////////now let's connect to the server//////////////////////////////////////
+        //now let's connect to the server
         RdmaConnParam connParam = new RdmaConnParam();
         connParam.setRetry_count((byte) 2);
         ret = idPriv.connect(connParam);
@@ -187,72 +183,35 @@ public class FileTransferClient {
         //always ack CM events
         cmEvent.ackEvent();
 
-        //////////////////////////////////////init File/////////////////////////////////
+        // write data File
         File file= new File(filePath);
-        DataInputFormat dataInputFormat=new DataInputFormat((long) cmdLineCommon.getSize());
         RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");
-        List<InputSplit> splits = dataInputFormat.getSplits(filePath);
+        randomAccessFile.getChannel().read(dataBuf);
 
-        //////////////////////////////////////File Information//////////////////////////////////////
-        infoByteBuffer.putInt(splits.size());
-        infoByteBuffer.putLong(file.length());
-        logger.info("Transfer Split File {} Block , Filelength {}", splits.size(), file.length());
         //this class is a thin wrapper over some of the data operations in jverbs
         //we use it to issue data transfer operations
         VerbsTools commRdma = new VerbsTools(context, compChannel, qp, cq);
-        LinkedList<IbvSendWR> wrInfoList_send = new LinkedList<IbvSendWR>();
+        LinkedList<IbvSendWR> wrList_send = new LinkedList<IbvSendWR>();
 
         //let's preopare some work requests for sending
         // 应用程序发送RDMA SEND请求到RNIC
-        IbvSge sgeInfoSend = new IbvSge();
-        sgeInfoSend.setAddr(infoMr.getAddr());
-        sgeInfoSend.setLength(infoMr.getLength());
-        sgeInfoSend.setLkey(infoMr.getLkey());
-        LinkedList<IbvSge> sgeInfoList = new LinkedList<IbvSge>();
-        sgeInfoList.add(sgeInfoSend);
-        IbvSendWR sendInfoWR = new IbvSendWR();
-        sendInfoWR.setWr_id(0);
-        sendInfoWR.setSg_list(sgeInfoList);
-        sendInfoWR.setOpcode(IbvSendWR.IBV_WR_SEND);
-        sendInfoWR.setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
-        wrInfoList_send.add(sendInfoWR);
+        IbvSge sgeSend = new IbvSge();
+        sgeSend.setAddr(dataMr.getAddr());
+        sgeSend.setLength(dataMr.getLength());
+        sgeSend.setLkey(dataMr.getLkey());
+        LinkedList<IbvSge> sgeList = new LinkedList<IbvSge>();
+        sgeList.add(sgeSend);
+        IbvSendWR sendWR = new IbvSendWR();
+        sendWR.setWr_id(2000);
+        sendWR.setSg_list(sgeList);
+        sendWR.setOpcode(IbvSendWR.IBV_WR_SEND);
+        sendWR.setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
+        wrList_send.add(sendWR);
+
         //post a send call, here we send a message which include the RDMA information of a data buffer
         // 应用程序发送 RDMA SEND请求到Send Queue，同时等待Complete Queue中请求执行完成
-        commRdma.send( wrInfoList_send, true, false);
-
-        //////////////////////////////////////write data File//////////////////////////////////////
-        for (int i = 0; i < splits.size(); i++) {
-
-            dataByteBuffer.clear();
-            InputSplit inputSplit = splits.get(i);
-            long length = inputSplit.getLength();
-            dataByteBuffer.putInt(i);
-            dataByteBuffer.putLong(length);
-            randomAccessFile.getChannel().read(dataByteBuffer);
-
-            VerbsTools commDataRdma = new VerbsTools(context, compChannel, qp, cq);
-            LinkedList<IbvSendWR> wrDataList_send = new LinkedList<IbvSendWR>();
-
-            //let's preopare some work requests for sending
-            // 应用程序发送RDMA SEND请求到RNIC
-            IbvSge sgeDataSend = new IbvSge();
-            sgeDataSend.setAddr(dataMr.getAddr());
-            sgeDataSend.setLength(dataMr.getLength());
-            sgeDataSend.setLkey(dataMr.getLkey());
-            LinkedList<IbvSge> sgeDataList = new LinkedList<IbvSge>();
-            sgeDataList.add(sgeDataSend);
-            IbvSendWR sendDataWR = new IbvSendWR();
-            sendDataWR.setWr_id(i+1001);
-            sendDataWR.setSg_list(sgeDataList);
-            sendDataWR.setOpcode(IbvSendWR.IBV_WR_SEND);
-            sendDataWR.setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
-            wrDataList_send.add(sendDataWR);
-            //post a send call, here we send a message which include the RDMA information of a data buffer
-            // 应用程序发送 RDMA SEND请求到Send Queue，同时等待Complete Queue中请求执行完成
-            commDataRdma.send(wrDataList_send, true, false);
-            logger.info("Block {} SEND SUCCESS: {} " , i , length);
-        }
-
+        commRdma.send(buffers, wrList_send, true, false);
+        System.out.println("VerbsServer::stag info sent");
         randomAccessFile.getChannel().close();
     }
 }
