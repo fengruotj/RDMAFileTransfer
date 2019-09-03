@@ -172,13 +172,6 @@ public class FileTransferServer {
         }
         cmEvent.ackEvent();
 
-        //////////////////////////////////////init File/////////////////////////////////
-        File file= new File(filePath);
-        if(file.exists())
-            file.delete();
-        RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");
-        FileChannel fileChannel = randomAccessFile.getChannel();
-
         //////////////////////////////////////File Information//////////////////////////////////////
         int splitSize=0;
         long fileLength=0L;
@@ -204,8 +197,17 @@ public class FileTransferServer {
         fileLength = infoByteBuffer.getLong();
         logger.info("Transfer Split File {} Block , Filelength {}", splitSize, fileLength);
 
+        //////////////////////////////////////init File/////////////////////////////////
+        File file= new File(filePath);
+        if(file.exists())
+            file.delete();
+        RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");
+        FileChannel fileChannel = randomAccessFile.getChannel();
+
         //////////////////////////////////////write data File//////////////////////////////////////
         for (int i = 0; i < splitSize; i++) {
+            dataByteBuffer.clear();
+
             LinkedList<IbvRecvWR> wrDataList_recv = new LinkedList<IbvRecvWR>();
             IbvSge sgeDataRecv = new IbvSge();
             sgeDataRecv.setAddr(dataMr.getAddr());

@@ -222,7 +222,6 @@ public class FileTransferClient {
 
         //////////////////////////////////////write data File//////////////////////////////////////
         for (int i = 0; i < splits.size(); i++) {
-
             dataByteBuffer.clear();
             InputSplit inputSplit = splits.get(i);
             long length = inputSplit.getLength();
@@ -249,6 +248,8 @@ public class FileTransferClient {
             wrDataList_send.add(sendDataWR);
             //post a send call, here we send a message which include the RDMA information of a data buffer
             // 应用程序发送 RDMA SEND请求到Send Queue，同时等待Complete Queue中请求执行完成
+            //TODO Fix Bug: Client Send Post Quickly: IBV_WC_RNR_RETRY_EXC_ERR
+            Thread.sleep(10);
             commDataRdma.send(wrDataList_send, true, false);
             logger.info("Block {} SEND SUCCESS: {} " , i , length);
         }
