@@ -11,6 +11,7 @@
     <modules>
         <module>FileTransfer-RDMAChannel</module>
       <module>FileTransfer-RDMAVerbs</module>
+        <module>DirectoryTransfer-RDMAChannel</module>
     </modules>
 
     <name>RDMAFileTransfer</name>
