@@ -1,6 +1,6 @@
 package com.basic.rdma;
 
-import com.basic.rdma.task.DirectoryTranserHandlerTask;
+import com.basic.rdma.task.DirectorySequenceTranserHandlerTask;
 import com.basic.rdma.util.CmdLineCommon;
 import com.basic.rdmachannel.channel.RdmaChannel;
 import com.basic.rdmachannel.channel.RdmaChannelConf;
@@ -18,14 +18,14 @@ import java.util.concurrent.Executors;
  * locate com.basic.rdma
  * Created by master on 2019/8/25.
  */
-public class DirectoryTransferServer implements RdmaConnectListener {
-    private static final Logger logger = LoggerFactory.getLogger(DirectoryTransferServer.class);
+public class DirectorySequenceTransferServer implements RdmaConnectListener {
+    private static final Logger logger = LoggerFactory.getLogger(DirectorySequenceTransferServer.class);
     private RdmaNode rdmaServer;
 
     private ExecutorService executorService;
 
     private CmdLineCommon cmdLineCommon;
-    public DirectoryTransferServer(CmdLineCommon cmdLineCommon, RdmaChannelConf rdmaChannelConf) throws Exception {
+    public DirectorySequenceTransferServer(CmdLineCommon cmdLineCommon, RdmaChannelConf rdmaChannelConf) throws Exception {
         String hostName = RDMAUtils.getLocalHostLANAddress(cmdLineCommon.getIface()).getHostName();
         this.cmdLineCommon = cmdLineCommon;
         this.rdmaServer = new RdmaNode(hostName, cmdLineCommon.getPort(), rdmaChannelConf, RdmaChannel.RdmaChannelType.RPC);
@@ -33,7 +33,7 @@ public class DirectoryTransferServer implements RdmaConnectListener {
     }
 
     /**
-     * DirectoryTransferServer 绑定连接，并且注册完成时间监听
+     * DirectorySequenceTransferServer 绑定连接，并且注册完成时间监听
      *
      * @throws Exception
      */
@@ -49,7 +49,7 @@ public class DirectoryTransferServer implements RdmaConnectListener {
     @Override
     public void onSuccess(InetSocketAddress inetSocketAddress, RdmaChannel rdmaChannel) {
         logger.info("success accept RdmaChannel: " + inetSocketAddress.getHostName());
-        executorService.submit(new DirectoryTranserHandlerTask(cmdLineCommon, rdmaChannel, rdmaServer.getRdmaBufferManager()));
+        executorService.submit(new DirectorySequenceTranserHandlerTask(cmdLineCommon, rdmaChannel, rdmaServer.getRdmaBufferManager()));
     }
 
     @Override

@@ -67,6 +67,8 @@ public class FileTransferClient {
         File file= new File(filePath);
         RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");
         List<InputSplit> splits = dataInputFormat.getSplits(filePath);
+        CyclicBarrier cyclicBarrier=new CyclicBarrier(2);
+
         // data index transferSize
         RdmaBuffer dataBuffer = rdmaBufferManager.get(cmdLineCommon.getSize()+ Constants.BLOCKINDEX_SIZE + Constants.BLOCKLENGTH_SIZE);
         ByteBuffer dataByteBuffer = dataBuffer.getByteBuffer();
@@ -80,20 +82,25 @@ public class FileTransferClient {
         clientChannel.rdmaSendInQueue(new RdmaCompletionListener() {
             @Override
             public void onSuccess(ByteBuffer buf, Integer IMM) {
-                logger.info("infoBuffer SEND Success!!!");
-                rdmaBufferManager.put(infoBuffer);
+                try {
+                    logger.info("infoBuffer SEND Success!!!");
+                    cyclicBarrier.await();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (BrokenBarrierException e) {
+                    e.printStackTrace();
+                }
             }
 
             @Override
             public void onFailure(Throwable exception) {
                 exception.printStackTrace();
-                rdmaBufferManager.put(infoBuffer);
             }
         },new long[]{infoBuffer.getAddress()},new int[]{infoBuffer.getLength()},new int[]{infoBuffer.getLkey()});
-
+        cyclicBarrier.await();
+        rdmaBufferManager.put(infoBuffer);
 
         // File Data
-        CyclicBarrier cyclicBarrier=new CyclicBarrier(2);
         for (int i = 0; i < splits.size(); i++) {
             cyclicBarrier.reset();
 
