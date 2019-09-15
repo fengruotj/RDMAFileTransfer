@@ -50,6 +50,10 @@ public class DirectorySequenceTranserHandlerTask implements Runnable{
     public void recvSingleDirectory(String directoryPath) throws Exception {
         CyclicBarrier cyclicBarrier=new CyclicBarrier(2);
 
+        File file= new File(directoryPath);
+        if(file.exists())
+            file.delete();
+
         // data index transferSize
         RdmaBuffer infoBuffer = rdmaBufferManager.get(Constants.INFOBUFFER_SIZE);
         ByteBuffer infoByteBuffer = infoBuffer.getByteBuffer();
@@ -128,7 +132,7 @@ public class DirectorySequenceTranserHandlerTask implements Runnable{
         byte[] data = new byte[fileNameLength];
         infoByteBuffer.get(data);
         fileName = new String(data,"UTF-8");
-        logger.info("Transfer FileName {}, Split File {} Block , Filelength {}", splitSize, splitSize, fileLength);
+        logger.info("Transfer FileName {}, Split File {} Block , Filelength {}", fileName, splitSize, fileLength);
         rdmaBufferManager.put(infoBuffer);
 
         File file= new File(parentPath,fileName);
