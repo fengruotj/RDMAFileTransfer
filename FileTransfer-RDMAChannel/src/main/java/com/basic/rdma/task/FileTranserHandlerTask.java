@@ -43,17 +43,10 @@ public class FileTranserHandlerTask implements Runnable{
 
     /**
      * 接受单个文件传输
-     * @param filePath
      * @throws Exception
      */
-    public void recvSingleFile(String filePath) throws Exception {
+    public void recvSingleFile(String parentPath) throws Exception {
         CyclicBarrier cyclicBarrier=new CyclicBarrier(2);
-
-        File file= new File(filePath);
-        if(file.exists())
-            file.delete();
-        RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");
-        FileChannel fileChannel = randomAccessFile.getChannel();
 
         // data index transferSize
         RdmaBuffer dataBuffer = rdmaBufferManager.get(cmdLineCommon.getSize()+ Constants.BLOCKINDEX_SIZE + Constants.BLOCKLENGTH_SIZE);
@@ -63,7 +56,8 @@ public class FileTranserHandlerTask implements Runnable{
 
         int splitSize=0;
         long fileLength=0L;
-
+        int fileNameLength=0;
+        String fileName= null;
         rdmaChannel.rdmaReceiveInQueue(new RdmaCompletionListener() {
             @Override
             public void onSuccess(ByteBuffer buf, Integer IMM) {
@@ -86,8 +80,18 @@ public class FileTranserHandlerTask implements Runnable{
 
         splitSize = infoByteBuffer.getInt();
         fileLength = infoByteBuffer.getLong();
-        logger.info("Transfer Split File {} Block , Filelength {}", splitSize, fileLength);
+        fileNameLength = infoByteBuffer.getInt();
+        byte[] data = new byte[fileNameLength];
+        infoByteBuffer.get(data);
+        fileName = new String(data,"UTF-8");
+        logger.info("Transfer FileName {}, Split File {} Block , Filelength {}", fileName, splitSize, fileLength);
         rdmaBufferManager.put(infoBuffer);
+
+        File file= new File(parentPath,fileName);
+        if(file.exists())
+            file.delete();
+        RandomAccessFile randomAccessFile=new RandomAccessFile(file, "rw");
+        FileChannel fileChannel = randomAccessFile.getChannel();
 
         for (int i = 0; i < splitSize; i++) {
             cyclicBarrier.reset();

@@ -78,7 +78,9 @@ public class FileTransferClient {
         // File Information
         infoByteBuffer.putInt(splits.size());
         infoByteBuffer.putLong(file.length());
-        logger.info("Transfer Split File {} Block , Filelength {}", splits.size(), file.length());
+        infoByteBuffer.putInt(file.getName().toCharArray().length);
+        infoByteBuffer.put(file.getName().getBytes());
+        logger.info("Transfer FileName {}, Split File {} Block , Filelength {}", file.getName(), splits.size(), file.length());
         clientChannel.rdmaSendInQueue(new RdmaCompletionListener() {
             @Override
             public void onSuccess(ByteBuffer buf, Integer IMM) {
