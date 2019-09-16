@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
@@ -64,14 +65,31 @@ public class DirectorySequenceTransferClient {
      */
     public void sendSingleDirectory(String directoryPath) throws Exception {
         File directory= new File(directoryPath);
+        if(!directory.exists()){
+            logger.error("directory {} is not exists", directoryPath);
+            return;
+        }
         RdmaBuffer infoBuffer = rdmaBufferManager.get(Constants.INFOBUFFER_SIZE);
         ByteBuffer infoByteBuffer = infoBuffer.getByteBuffer();
         CyclicBarrier cyclicBarrier=new CyclicBarrier(2);
 
         File[] files = directory.listFiles();
+        List<File> singleFiles = new ArrayList<>();
+        List<File> singleDirectory = new ArrayList<>();
+
+        for (int i = 0; i < files.length; i++) {
+            if(files[i].isDirectory())
+                singleDirectory.add(files[i]);
+            else
+                singleFiles.add(files[i]);
+        }
+
         // Directory Information
-        infoByteBuffer.putInt(files.length);
-        logger.info("Transfer directoryPath: {} , file Number: {}", directoryPath, files.length);
+        infoByteBuffer.putInt(singleFiles.size());
+        infoByteBuffer.putInt(singleDirectory.size());
+        infoByteBuffer.putInt(directory.getName().toCharArray().length);
+        infoByteBuffer.put(directory.getName().getBytes());
+        logger.info("Transfer directoryPath: {} , singleFiles Number: {}, singleDirectory Number: {}", directory.getName(), singleFiles.size(), singleDirectory.size());
 
         clientChannel.rdmaSendInQueue(new RdmaCompletionListener() {
             @Override
@@ -95,8 +113,13 @@ public class DirectorySequenceTransferClient {
         rdmaBufferManager.put(infoBuffer);
 
         // Transfer singleFile
-        for (int i = 0; i < files.length; i++) {
-            sendSingleFile(files[i].getPath());
+        for (int i = 0; i < singleFiles.size(); i++) {
+            sendSingleFile(singleFiles.get(i).getPath());
+        }
+
+        // Transfer directoryFile
+        for (int i = 0; i < singleDirectory.size(); i++) {
+            sendSingleDirectory(singleDirectory.get(i).getPath());
         }
     }
 

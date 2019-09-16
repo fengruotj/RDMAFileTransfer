@@ -44,21 +44,20 @@ public class DirectorySequenceTranserHandlerTask implements Runnable{
 
     /**
      * 接受整个文件夹传输
-     * @param directoryPath
+     * @param parentPath
      * @throws Exception
      */
-    public void recvSingleDirectory(String directoryPath) throws Exception {
+    public void recvSingleDirectory(String parentPath) throws Exception {
         CyclicBarrier cyclicBarrier=new CyclicBarrier(2);
-
-        File file= new File(directoryPath);
-        if(file.exists())
-            file.delete();
 
         // data index transferSize
         RdmaBuffer infoBuffer = rdmaBufferManager.get(Constants.INFOBUFFER_SIZE);
         ByteBuffer infoByteBuffer = infoBuffer.getByteBuffer();
 
-        int filesLength=0;
+        int filesSize=0;
+        int directorySize=0;
+        int directoryNameLength=0;
+        String directoryName= null;
         rdmaChannel.rdmaReceiveInQueue(new RdmaCompletionListener() {
             @Override
             public void onSuccess(ByteBuffer buf, Integer IMM) {
@@ -79,13 +78,28 @@ public class DirectorySequenceTranserHandlerTask implements Runnable{
         },infoBuffer.getAddress(),infoBuffer.getLength(),infoBuffer.getLkey());
         cyclicBarrier.await();
 
-        filesLength = infoByteBuffer.getInt();
-        logger.info("Transfer directoryPath: {} , file Number: {}", directoryPath, filesLength);
+        filesSize = infoByteBuffer.getInt();
+        directorySize = infoByteBuffer.getInt();
+        directoryNameLength = infoByteBuffer.getInt();
+        byte[] data = new byte[directoryNameLength];
+        infoByteBuffer.get(data);
+        directoryName = new String(data,"UTF-8");
+        logger.info("Transfer directoryPath: {} , singleFiles Number: {}, singleDirectory Number: {}", directoryName, filesSize , directorySize);
         rdmaBufferManager.put(infoBuffer);
 
+        File directory= new File(parentPath,directoryName);
+        if(!directory.exists()){
+            directory.mkdir();
+        }
+
         // Transfer singleFile
-        for (int i = 0; i < filesLength; i++) {
-            recvSingleFile(directoryPath);
+        for (int i = 0; i < filesSize; i++) {
+            recvSingleFile(directory.getPath());
+        }
+
+        // Transfer directoryFile
+        for (int i = 0; i < directorySize; i++) {
+            recvSingleDirectory(directory.getPath());
         }
     }
 
