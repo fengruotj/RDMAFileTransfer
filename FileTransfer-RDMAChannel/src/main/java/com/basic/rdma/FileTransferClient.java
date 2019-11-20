@@ -9,7 +9,6 @@ import com.basic.rdmachannel.channel.RdmaCompletionListener;
 import com.basic.rdmachannel.channel.RdmaNode;
 import com.basic.rdmachannel.mr.RdmaBuffer;
 import com.basic.rdmachannel.mr.RdmaBufferManager;
-import com.basic.rdmachannel.util.RDMAUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +36,7 @@ public class FileTransferClient {
 
     private CmdLineCommon cmdLineCommon;
     public FileTransferClient(CmdLineCommon cmdLineCommon,RdmaChannelConf rdmaChannelConf) throws Exception {
-        String hostName = RDMAUtils.getLocalHostLANAddress(cmdLineCommon.getIface()).getHostName();
+        String hostName = cmdLineCommon.getIface();
         this.cmdLineCommon = cmdLineCommon;
         this.rdmaClient=new RdmaNode(hostName, cmdLineCommon.getPort(), rdmaChannelConf , RdmaChannel.RdmaChannelType.RPC);
         this.rdmaBufferManager = rdmaClient.getRdmaBufferManager();
