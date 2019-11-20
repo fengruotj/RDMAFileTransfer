@@ -6,18 +6,14 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="DirectoryTransfer-RDMAChannel" />
         <module name="FileTransfer-RDMAChannel" />
         <module name="FileTransfer-RDMAVerbs" />
+        <module name="DirectoryTransfer-RDMAChannel" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="DirectoryTransfer-RDMAChannel" target="1.8" />
       <module name="DirectoryTransferRDMAChannel" target="1.8" />
-      <module name="FileTransfer-RDMAChannel" target="1.8" />
-      <module name="FileTransfer-RDMAVerbs" target="1.8" />
       <module name="FileTransfer-Verbs" target="1.8" />
-      <module name="RDMAFileTransfer" target="1.8" />
       <module name="RDMAFileTransfer-Verbs" target="1.8" />
     </bytecodeTargetLevel>
   </component>

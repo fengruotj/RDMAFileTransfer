@@ -93,7 +93,6 @@ public class FileTransferClient {
                     e.printStackTrace();
                 }
             }
-
             @Override
             public void onFailure(Throwable exception) {
                 exception.printStackTrace();
