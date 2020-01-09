@@ -2,13 +2,13 @@
 RDMA Large File Transfer：A Large-scale File and Folder Transfer Framework. By using two components, RDMA Channel and RDMA Verbs.
 
 1. FileTransfer-RDMAChannel
-RDMAChannel for large file transmission.
+> RDMAChannel for large file transmission.
 
 2. FileTransfer-RDMAVerbs
-RDMAVerbs for large file transmission.
+> RDMAVerbs for large file transmission.
 
 3. DirectoryTranfser-RDMAChannel
-RDMAChannel for large folder transmission.
+> RDMAChannel for large folder transmission.
 
 ## License
 
